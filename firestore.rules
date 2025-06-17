@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow read access to nachmieter listings
+    match /nachmieter_listings/{document} {
+      allow read: if true;
+      allow write: if false; // Only functions can write
+    }
+    
+    // Allow read access to scraping stats
+    match /scraping_stats/{document} {
+      allow read: if true;
+      allow write: if false; // Only functions can write
+    }
+    
+    // Deny access to error logs (admin only)
+    match /scraping_errors/{document} {
+      allow read, write: if false;
+    }
+  }
+} 
