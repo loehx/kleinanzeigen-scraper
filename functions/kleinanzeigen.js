@@ -192,57 +192,254 @@ async function getItemDetails(itemId) {
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     );
 
-    const url = `https://www.kleinanzeigen.de/s-anzeige/item/${itemId}-999-9999`;
-    console.log("🔍 Fetching item details:", url);
+    // Try multiple URL formats to find the correct one
+    const urlFormats = [
+      `https://www.kleinanzeigen.de/s-anzeige/item/${itemId}`,
+      `https://www.kleinanzeigen.de/s-anzeige/nachmieter/${itemId}`,
+      `https://www.kleinanzeigen.de/s-anzeige/wohnung/${itemId}`,
+    ];
 
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
-    await page.waitForTimeout(2000);
+    let itemDetails = null;
+    let successfulUrl = null;
 
-    const itemDetails = await page.evaluate(() => {
-      const title =
-        document.querySelector("h1#viewad-title")?.textContent?.trim() || "";
-      const description =
-        document
-          .querySelector("#viewad-description-text")
-          ?.textContent?.trim() || "";
+    for (const url of urlFormats) {
+      try {
+        console.log(`🔍 Trying URL format: ${url}`);
 
-      const priceElement = document.querySelector("#viewad-price");
-      let price = null;
-      if (priceElement) {
-        const priceMatch = priceElement.textContent.match(/[\d.,]+/);
-        if (priceMatch) {
-          price = parseInt(priceMatch[0].replace(/[.,]/g, ""));
+        await page.goto(url, { waitUntil: "networkidle2", timeout: 20000 });
+        await page.waitForTimeout(1500);
+
+        // Check if page loaded successfully (not 404 or error)
+        const pageTitle = await page.title();
+        if (
+          pageTitle.toLowerCase().includes("nicht gefunden") ||
+          pageTitle.toLowerCase().includes("404") ||
+          pageTitle.toLowerCase().includes("fehler")
+        ) {
+          console.log(`❌ Page not found for URL: ${url}`);
+          continue;
         }
+
+        // Try to extract item details
+        itemDetails = await page.evaluate(() => {
+          // Multiple selectors for title
+          const titleSelectors = [
+            "h1#viewad-title",
+            "h1[data-qa-id='aditem-title']",
+            ".boxedarticle h1",
+            "h1.text-module-begin",
+            ".ad-title h1",
+          ];
+
+          let title = "";
+          for (const selector of titleSelectors) {
+            const element = document.querySelector(selector);
+            if (element && element.textContent.trim()) {
+              title = element.textContent.trim();
+              break;
+            }
+          }
+
+          // Multiple selectors for description
+          const descSelectors = [
+            "#viewad-description-text",
+            "[data-qa-id='aditem-description']",
+            ".ad-description",
+            ".text-module-end",
+            "#ad-description",
+          ];
+
+          let description = "";
+          for (const selector of descSelectors) {
+            const element = document.querySelector(selector);
+            if (element && element.textContent.trim()) {
+              description = element.textContent.trim();
+              break;
+            }
+          }
+
+          // Multiple selectors for price
+          const priceSelectors = [
+            "#viewad-price",
+            "[data-qa-id='aditem-price']",
+            ".ad-price",
+            ".price-boxed",
+            ".notranslate",
+          ];
+
+          let price = null;
+          for (const selector of priceSelectors) {
+            const element = document.querySelector(selector);
+            if (element) {
+              const priceText = element.textContent.trim();
+              const priceMatch = priceText.match(/[\d.,]+/);
+              if (priceMatch) {
+                price = parseInt(priceMatch[0].replace(/[.,]/g, ""));
+                break;
+              }
+            }
+          }
+
+          // Multiple selectors for location
+          const locationSelectors = [
+            "#viewad-locality",
+            "[data-qa-id='aditem-location']",
+            ".ad-location",
+            ".text-light",
+            "#viewad-details .text-light",
+          ];
+
+          let location = "";
+          for (const selector of locationSelectors) {
+            const element = document.querySelector(selector);
+            if (element && element.textContent.trim()) {
+              location = element.textContent.trim();
+              break;
+            }
+          }
+
+          // Multiple selectors for images
+          const imageSelectors = [
+            "#viewad-image img",
+            ".galleryimage-element img",
+            ".ad-image img",
+            ".image-gallery img",
+            "[data-qa-id='aditem-image'] img",
+          ];
+
+          let images = [];
+          for (const selector of imageSelectors) {
+            const elements = document.querySelectorAll(selector);
+            if (elements.length > 0) {
+              images = Array.from(elements)
+                .map((img) => img.src)
+                .filter(
+                  (src) =>
+                    src &&
+                    !src.includes("placeholder") &&
+                    !src.includes("default") &&
+                    src.startsWith("http")
+                );
+              if (images.length > 0) break;
+            }
+          }
+
+          // Extract additional details
+          const detailsSelectors = [
+            "#viewad-details",
+            ".ad-details",
+            ".attributelist",
+            "[data-qa-id='aditem-details']",
+          ];
+
+          let additionalDetails = {};
+          for (const selector of detailsSelectors) {
+            const element = document.querySelector(selector);
+            if (element) {
+              const text = element.textContent;
+
+              // Extract common details
+              if (text.includes("m²") || text.includes("qm")) {
+                const sizeMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(?:m²|qm)/);
+                if (sizeMatch) {
+                  additionalDetails.size = parseFloat(
+                    sizeMatch[1].replace(",", ".")
+                  );
+                }
+              }
+
+              if (text.includes("Zimmer")) {
+                const roomMatch = text.match(/(\d+(?:[.,]\d+)?)\s*Zimmer/);
+                if (roomMatch) {
+                  additionalDetails.rooms = parseFloat(
+                    roomMatch[1].replace(",", ".")
+                  );
+                }
+              }
+
+              break;
+            }
+          }
+
+          // Get posting date
+          let postedDate = null;
+          const dateSelectors = [
+            "#viewad-extra-info",
+            ".ad-date",
+            ".creation-date",
+          ];
+
+          for (const selector of dateSelectors) {
+            const element = document.querySelector(selector);
+            if (element) {
+              const dateText = element.textContent;
+              if (
+                dateText.includes("Erstellt am") ||
+                dateText.includes("Online seit")
+              ) {
+                // Try to extract date
+                const dateMatch = dateText.match(/(\d{1,2}\.\d{1,2}\.\d{4})/);
+                if (dateMatch) {
+                  postedDate = dateMatch[1];
+                  break;
+                }
+              }
+            }
+          }
+
+          return {
+            title,
+            description,
+            price,
+            currency: "EUR",
+            location,
+            images: images.slice(0, 10), // Limit to 10 images
+            additionalDetails,
+            postedDate,
+            hasContent: !!(title || description || price || location),
+          };
+        });
+
+        // Check if we got meaningful content
+        if (itemDetails && itemDetails.hasContent) {
+          successfulUrl = url;
+          console.log(`✅ Successfully extracted details from: ${url}`);
+          break;
+        } else {
+          console.log(`❌ No meaningful content found at: ${url}`);
+        }
+      } catch (urlError) {
+        console.log(`❌ Failed to load URL ${url}:`, urlError.message);
+        continue;
       }
+    }
 
-      const locationElement = document.querySelector("#viewad-locality");
-      const location = locationElement?.textContent?.trim() || "";
+    if (!itemDetails || !itemDetails.hasContent) {
+      throw new Error(
+        `Could not fetch details for item ${itemId} - tried ${urlFormats.length} URL formats`
+      );
+    }
 
-      const images = Array.from(
-        document.querySelectorAll(
-          "#viewad-image img, .galleryimage-element img"
-        )
-      )
-        .map((img) => img.src)
-        .filter((src) => src && !src.includes("placeholder"));
+    // Remove the hasContent flag before returning
+    delete itemDetails.hasContent;
 
-      const createdElement = document.querySelector("#viewad-extra-info");
-      const createdAt = createdElement?.textContent?.includes("Erstellt am")
-        ? new Date().toISOString()
-        : new Date().toISOString();
+    console.log(`✅ Item details fetched successfully from: ${successfulUrl}`);
+    console.log(`   📋 Title: ${itemDetails.title ? "Found" : "Missing"}`);
+    console.log(
+      `   📝 Description: ${itemDetails.description ? "Found" : "Missing"}`
+    );
+    console.log(
+      `   💰 Price: ${
+        itemDetails.price ? itemDetails.price + " EUR" : "Missing"
+      }`
+    );
+    console.log(
+      `   📍 Location: ${itemDetails.location ? "Found" : "Missing"}`
+    );
+    console.log(
+      `   🖼️  Images: ${itemDetails.images ? itemDetails.images.length : 0}`
+    );
 
-      return {
-        title,
-        description,
-        price,
-        currency: "EUR",
-        location,
-        images,
-        createdAt,
-      };
-    });
-
-    console.log("✅ Item details fetched successfully");
     return itemDetails;
   } catch (error) {
     console.error("❌ Failed to fetch item details:", error);
