@@ -14,18 +14,18 @@ async function checkDatabase() {
   console.log("🔍 Checking Firestore database...\n");
 
   try {
-    // Check nachmieter listings
-    console.log("📋 NACHMIETER LISTINGS:");
-    console.log("========================");
+    // Check unified rental listings
+    console.log("📋 RENTAL LISTINGS (ALL SOURCES):");
+    console.log("==================================");
 
     const listingsSnapshot = await db
-      .collection("nachmieter_listings")
+      .collection("rental_listings")
       .orderBy("lastSeen", "desc")
       .limit(10)
       .get();
 
     if (listingsSnapshot.empty) {
-      console.log("❌ No nachmieter listings found");
+      console.log("❌ No rental listings found");
       console.log(
         "💡 Run the scraper first or deploy to start collecting data\n"
       );
