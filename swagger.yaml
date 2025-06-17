@@ -1,0 +1,316 @@
+openapi: 3.0.0
+info:
+  title: eBay Kleinanzeigen Scraper API
+  description: This service provides an API that lets you easily fetch the latest items from eBay Kleinanzeigen.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:4000
+    description: Development server
+  - url: https://api.kleinanzeigen-scraper.com
+    description: Production server
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Check if the service is running
+      tags:
+        - Health
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+  /api/items:
+    get:
+      summary: Search items
+      description: Fetches items from eBay Kleinanzeigen based on search criteria
+      tags:
+        - Items
+      parameters:
+        - name: query
+          in: query
+          description: Search term
+          required: false
+          schema:
+            type: string
+            example: "fahrrad"
+        - name: location
+          in: query
+          description: Location name
+          required: false
+          schema:
+            type: string
+            example: "Berlin"
+        - name: radius
+          in: query
+          description: Search radius in km
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            example: 50
+        - name: minPrice
+          in: query
+          description: Minimum price in EUR
+          required: false
+          schema:
+            type: number
+            minimum: 0
+            example: 100
+        - name: maxPrice
+          in: query
+          description: Maximum price in EUR
+          required: false
+          schema:
+            type: number
+            minimum: 0
+            example: 500
+        - name: offset
+          in: query
+          description: Page number (0-based)
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 0
+        - name: limit
+          in: query
+          description: Items per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+            example: 10
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ItemSummary"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/items/{id}:
+    get:
+      summary: Get item details
+      description: Fetches detailed information about a specific item
+      tags:
+        - Items
+      parameters:
+        - name: id
+          in: path
+          description: Item ID
+          required: true
+          schema:
+            type: string
+            pattern: '^\d+$'
+            example: "3099825764"
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  item:
+                    $ref: "#/components/schemas/ItemDetails"
+        "400":
+          description: Invalid item ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  schemas:
+    ItemSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique item identifier
+          example: "3099825764"
+        title:
+          type: string
+          description: Item title
+          example: "Nissan Navara D40 (LKW Zulassung)"
+        description:
+          type: string
+          description: Short item description
+          example: "Zum Verkauf steht hier unser zuverlässiger Navara..."
+        price:
+          type: number
+          nullable: true
+          description: Item price
+          example: 7800
+        currency:
+          type: string
+          description: Price currency
+          example: "EUR"
+        location:
+          type: string
+          description: Item location
+          example: "66571 Eppelborn"
+        distance:
+          type: number
+          nullable: true
+          description: Distance from search location in km
+          example: null
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: Array of image URLs
+          example:
+            [
+              "https://img.kleinanzeigen.de/api/v1/prod-ads/images/fd/fd4fb980-2067-4701-8b43-f65384f1b0a0?rule=$_2.AUTO",
+            ]
+        url:
+          type: string
+          format: uri
+          description: Link to the original item page
+          example: "https://www.kleinanzeigen.de/s-anzeige/nissan-navara-d40-lkw-zulassung-/3099825764-216-339"
+        createdAt:
+          type: string
+          format: date-time
+          description: Item creation timestamp
+          example: "2025-06-17T09:15:33.993Z"
+        seller:
+          $ref: "#/components/schemas/Seller"
+
+    ItemDetails:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique item identifier
+          example: "3099825764"
+        url:
+          type: string
+          format: uri
+          description: API-generated item URL
+          example: "https://www.kleinanzeigen.de/s-anzeige/item/3099825764-999-9999"
+        title:
+          type: string
+          description: Item title
+          example: "Nissan Navara D40 (LKW Zulassung)"
+        description:
+          type: string
+          description: Full item description
+          example: "Zum Verkauf steht hier unser zuverlässiger Navara. Motor, Getriebe, Allrad und Untersetzung funktionieren einwandfrei..."
+        price:
+          type: number
+          nullable: true
+          description: Item price
+          example: 7800
+        currency:
+          type: string
+          description: Price currency
+          example: "EUR"
+        location:
+          type: string
+          description: Detailed location information
+          example: "66571 Saarland - Eppelborn"
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: Array of all image URLs from the item gallery
+          example:
+            [
+              "https://img.kleinanzeigen.de/api/v1/prod-ads/images/fd/fd4fb980-2067-4701-8b43-f65384f1b0a0?rule=$_59.AUTO",
+            ]
+        createdAt:
+          type: string
+          description: Item creation date
+          example: "01.06.2025"
+        attributes:
+          type: object
+          additionalProperties:
+            type: string
+          description: Additional item attributes
+          example: {}
+        seller:
+          $ref: "#/components/schemas/Seller"
+
+    Seller:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Seller name
+          example: ""
+        rating:
+          type: number
+          nullable: true
+          description: Seller rating
+          example: null
+        memberSince:
+          type: string
+          description: Member since date
+          example: ""
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: Error message
+          example: "Invalid item ID"
+        stack:
+          type: string
+          description: Error stack trace (only in development)
+          example: "Error: Invalid item ID\n    at ..."
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Items
+    description: Item search and retrieval endpoints

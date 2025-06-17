@@ -7,13 +7,18 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon index.js"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "ebay",
+    "kleinanzeigen",
+    "scraper"
+  ],
+  "author": "Alexander Löhn",
   "license": "ISC",
   "dependencies": {
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
-    "firebase-admin": "^13.4.0"
+    "firebase-admin": "^13.4.0",
+    "puppeteer": "^24.10.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

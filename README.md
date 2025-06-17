@@ -9,59 +9,85 @@ This service provides an API that lets you easily fetch the latest items from eB
 #### GET /api/items
 Fetches items based on search criteria
 
-Query Parameters:
+**Query Parameters:**
 - `query` (string): Search term
-- `category` (string): Category ID
 - `location` (string): Location name
 - `radius` (number): Search radius in km
 - `minPrice` (number): Minimum price
 - `maxPrice` (number): Maximum price
-- `offset` (number): Page number
-- `limit` (number): Items per page
+- `offset` (number): Page number (0-based)
+- `limit` (number): Items per page (default: 20)
 
-Example:
-
+**Example Request:**
 ```
-{
-    "query": "",
-    "category": "123",
-    "location": "Berlin",
-    "radius": 10,
-    "minPrice": 100,
-    "maxPrice": 500,
-    "offset": 0,
-    "limit": 20
-}
+GET /api/items?query=fahrrad&location=Berlin&minPrice=100&maxPrice=500&limit=5
 ```
 
-Response:
-
-``` 
+**Response:**
+```json
 {
     "success": true,
     "items": [
         {
-            "id": "123456789",
-            "title": "iPhone 12 Pro Max",
-            "description": "Selling my iPhone 12 Pro Max in perfect condition...",
-            "price": 799.99,
+            "id": "3098445492",
+            "title": "Woom 4 Fahrrad in Blau",
+            "description": "Verkaufen unser Woom 4 Fahrrad in Blau da unser Junge zu groß dafür ist.",
+            "price": 350,
             "currency": "EUR",
-            "location": "Berlin",
-            "distance": 5.2,
+            "location": "80803 Schwabing-Freimann",
+            "distance": null,
             "images": [
-                "https://example.com/image1.jpg",
-                "https://example.com/image2.jpg"
+                "https://img.kleinanzeigen.de/api/v1/prod-ads/images/e9/e99302b4-424f-449b-83b3-3dca6d33f341?rule=$_2.AUTO"
             ],
-            "url": "https://www.ebay-kleinanzeigen.de/item/123456789",
-            "createdAt": "2024-03-20T10:30:00Z",
+            "url": "https://www.kleinanzeigen.de/s-anzeige/woom-4-fahrrad-in-blau/3098445492-217-16380",
+            "createdAt": "2025-06-17T08:51:18.667Z",
             "seller": {
-                "name": "John Doe",
-                "rating": 4.8,
-                "memberSince": "2020-01-01"
+                "name": "",
+                "rating": null,
+                "memberSince": ""
             }
-        },
-        ...
+        }
     ]
+}
+```
+
+## Getting Started
+
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Set up environment variables:**
+   Create a `.env` file with:
+   ```
+   FIREBASE_DATABASE_URL=your_firebase_url
+   ```
+
+3. **Add your Firebase service account key:**
+   Place `serviceAccountKey.json` in the project root
+
+4. **Start the development server:**
+   ```bash
+   npm run dev
+   ```
+
+5. **Test the API:**
+   ```bash
+   curl "http://localhost:4000/api/items?query=fahrrad&limit=2"
+   ```
+
+## Health Check
+
+Check if the service is running:
+```
+GET /health
+```
+
+Returns:
+```json
+{
+    "status": "ok"
 }
 ```
 
